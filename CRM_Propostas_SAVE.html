@@ -6742,7 +6742,7 @@
         };
 
         const periodDays = parseInt(document.getElementById('dash-period')?.value || '30', 10);
-        let query = _db.from('propostas').select('id, status, valor_mensal, created_at, perfis_usuario(nome)');
+        let query = _db.from('propostas').select('id, status, valor_total, created_at, nome_emissor');
         if (periodDays > 0) {
           const since = new Date();
           since.setDate(since.getDate() - periodDays);
@@ -6754,7 +6754,7 @@
         const all = rows || [];
         const total = all.length;
         const aprovadas = all.filter(r => r.status === 'Aprovada');
-        const receitaTotal = aprovadas.reduce((s, r) => s + (parseFloat(r.valor_mensal) || 0), 0);
+        const receitaTotal = aprovadas.reduce((s, r) => s + (parseFloat(r.valor_total) || 0), 0);
         const ticket = aprovadas.length ? receitaTotal / aprovadas.length : 0;
         const taxaConv = total ? (aprovadas.length / total) * 100 : 0;
 
@@ -6801,7 +6801,7 @@
         aprovadas.forEach(r => {
           const d = new Date(r.created_at);
           const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-          monthMap[key] = (monthMap[key] || 0) + (parseFloat(r.valor_mensal) || 0);
+          monthMap[key] = (monthMap[key] || 0) + (parseFloat(r.valor_total) || 0);
         });
         const monthKeys = Object.keys(monthMap).sort().slice(-12);
         const maxMon = Math.max(...monthKeys.map(k => monthMap[k]), 1);
@@ -6833,12 +6833,12 @@
         // Ranking de emissores
         const emissorMap = {};
         all.forEach(r => {
-          const nome = r.perfis_usuario?.nome || 'Desconhecido';
+          const nome = r.nome_emissor || 'Desconhecido';
           if (!emissorMap[nome]) emissorMap[nome] = { total: 0, aprovadas: 0, receita: 0 };
           emissorMap[nome].total++;
           if (r.status === 'Aprovada') {
             emissorMap[nome].aprovadas++;
-            emissorMap[nome].receita += parseFloat(r.valor_mensal) || 0;
+            emissorMap[nome].receita += parseFloat(r.valor_total) || 0;
           }
         });
         const emissores = Object.entries(emissorMap).sort((a, b) => b[1].receita - a[1].receita);
