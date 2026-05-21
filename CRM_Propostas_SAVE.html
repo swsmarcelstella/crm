@@ -4027,6 +4027,7 @@
           <button class="calc-tab-btn" onclick="calcTratamento.switchTab('eta',this)">🏭 ETA</button>
           <button class="calc-tab-btn" onclick="calcTratamento.switchTab('cloracao',this)">🧪 Cloração</button>
           <button class="calc-tab-btn" onclick="calcTratamento.switchTab('caldeira',this)">🔥 Caldeira</button>
+          <button class="calc-tab-btn" onclick="calcTratamento.switchTab('desengraxe',this)">🧽 Desengraxe / Passivação</button>
         </div>
 
         <!-- ===== TORRE ===== -->
@@ -4169,6 +4170,41 @@
           </div>
         </div>
 
+        <!-- ===== DESENGRAXE E PASSIVAÇÃO (serviço pontual) ===== -->
+        <div id="calc-tab-desengraxe" class="calc-tab-content">
+          <div class="calc-section">
+            <div class="calc-section-title">⚙️ Parâmetros do Sistema</div>
+            <div class="calc-grid-3">
+              <div class="calc-field"><label>Volume do sistema (m³)</label><input type="number" id="c-deseng-volume" value="45" step="1" oninput="calcTratamento.calc()"></div>
+              <div class="calc-field"><label>Tipo de sistema</label>
+                <select id="c-deseng-tipo" oninput="calcTratamento.calc()" style="width:100%;padding:8px 10px;border:1px solid #CBD5E1;border-radius:6px;font-size:13px;">
+                  <option value="gelada">Água Gelada (fechado)</option>
+                  <option value="condensacao">Água de Condensação</option>
+                  <option value="ambos">Ambos (gelada + condensação)</option>
+                </select>
+              </div>
+              <div class="calc-field"><label>Nº de equipamentos (chillers/condensadores)</label><input type="number" id="c-deseng-equip" value="3" min="1" step="1" oninput="calcTratamento.calc()"></div>
+            </div>
+            <p class="calc-nota">Serviço pontual (one-shot). Os valores abaixo são <strong>totais do serviço</strong>, não mensais.</p>
+          </div>
+          <div class="calc-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <div class="calc-section-title" style="margin:0;">🧴 Produtos Químicos (dosagem única)</div>
+              <button type="button" onclick="calcTratamento.addRow('desengraxe')" style="background:#1B4F8A;color:white;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">+ Adicionar Produto</button>
+            </div>
+            <div id="rows-desengraxe"></div>
+            <p class="calc-nota">Consumo total (kg) = Volume × ppm ÷ 1.000. Recomendado: Desengraxante 2.000–3.000 ppm · Nitrito (passivação) 1.000 ppm · Benzotriazol 50 ppm.</p>
+          </div>
+          <div class="calc-section">
+            <div class="calc-section-title">🔧 Mão de Obra e Acompanhamento</div>
+            <div class="calc-grid-3">
+              <div class="calc-field"><label>Custo serviço/acompanhamento (R$ total)</label><input type="number" id="c-deseng-servico" value="2500" step="100" oninput="calcTratamento.calc()"></div>
+              <div class="calc-field"><label>Deslocamento / análises (R$ total)</label><input type="number" id="c-deseng-comodato" value="500" step="50" oninput="calcTratamento.calc()"></div>
+              <div class="calc-field"><label>Margem de venda (%)</label><input type="number" id="c-deseng-margem" value="40" min="0" max="100" oninput="calcTratamento.calc()"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- ===== RESUMO ===== -->
         <div class="calc-summary" id="calc-summary" style="display:none;">
           <div class="calc-section-title" style="color:rgba(255,255,255,0.8);">📊 Resumo de Custo</div>
@@ -4241,12 +4277,13 @@
         eta:      [{n:'Sulfato de Alumínio', ppm:30}, {n:'Hipoclorito de Sódio', ppm:5}, {n:'Polímero Floculante', ppm:1}],
         cloracao: [{n:'Hipoclorito de Sódio', ppm:3}, {n:'Bicarbonato de Sódio', ppm:10}],
         caldeira: [{n:'PQ682 BETZDEARBORN – Dispersante+Fosfato', ppm:20}, {n:'IS1075 CORTROL – Sulfito', ppm:10}],
+        desengraxe: [{n:'SF5100 DEPOSITOL – Desengraxante', ppm:2500}, {n:'AF2051 FOAMTROL – Anti Espumante', ppm:50}, {n:'Nitrito de Sódio (puro)', ppm:1000}, {n:'AZ8100 INHIBITOR – Benzo 43%', ppm:50}],
       };
 
       let _activeTab = 'torre';
       let _targetKey = null;
       let _lastPreco = 0;
-      let _rowCounters = {torre:0, gelada:0, eta:0, cloracao:0, caldeira:0};
+      let _rowCounters = {torre:0, gelada:0, eta:0, cloracao:0, caldeira:0, desengraxe:0};
 
       const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
       const val = id => parseFloat(document.getElementById(id)?.value) || 0;
@@ -4363,6 +4400,9 @@
             consumo = val('c-clor-volume') * ppm / 1000;
           } else if (tab === 'caldeira') {
             consumo = val('c-cald-vazao') * val('c-cald-horas') * val('c-cald-dias') * ppm / 1000;
+          } else if (tab === 'desengraxe') {
+            // Serviço pontual: consumo único = Volume × ppm ÷ 1000 (sem componente mensal)
+            consumo = val('c-deseng-volume') * ppm / 1000;
           }
 
           const custo = consumo * preco;
@@ -4398,11 +4438,12 @@
       }
 
       function isTratamento(nome) {
-        return /(torre|resfria|condens|gelad|eta|esta.*trat|clora|cloro|potab|hipoclorito|caldeira)/i.test(nome);
+        return /(torre|resfria|condens|gelad|eta|esta.*trat|clora|cloro|potab|hipoclorito|caldeira|desengraxe|passiva|flushing)/i.test(nome);
       }
 
       function guessTab(nome) {
         const n = nome.toLowerCase();
+        if (/desengraxe|passiva|flushing|limpeza\s+quimica|limpeza\s+química/i.test(n)) return 'desengraxe';
         if (/gelad/i.test(n)) return 'gelada';
         if (/eta|esta.*trat|filtr/i.test(n)) return 'eta';
         if (/clora|cloro|potab|hipoclorito/i.test(n)) return 'cloracao';
@@ -4424,7 +4465,7 @@
           _targetKey = serviceKey;
           _activeTab = guessTab(serviceName);
           document.querySelectorAll('.calc-tab-btn').forEach((btn,i) => {
-            const tabs = ['torre','gelada','eta','cloracao','caldeira'];
+            const tabs = ['torre','gelada','eta','cloracao','caldeira','desengraxe'];
             btn.classList.toggle('active', tabs[i] === _activeTab);
           });
           document.querySelectorAll('.calc-tab-content').forEach(e => e.classList.remove('active'));
@@ -4433,7 +4474,7 @@
           document.getElementById('calc-apply-btn').disabled = true;
 
           // init all tabs if not done
-          ['torre','gelada','eta','cloracao','caldeira'].forEach(t => {
+          ['torre','gelada','eta','cloracao','caldeira','desengraxe'].forEach(t => {
             if(document.getElementById(`rows-${t}`) && document.getElementById(`rows-${t}`).childElementCount === 0) initRows(t);
           });
           document.getElementById('calc-tratamento-modal').style.display = 'block';
